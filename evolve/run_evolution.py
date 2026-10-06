@@ -384,6 +384,15 @@ def main():
              "or evolve/seed_solution_milp.py when --milp is set, "
              "or evolve/seed_solution_noncss.py when --noncss is set).",
     )
+    # --- Explicit evaluator override (Phase A1, weight-5 campaigns) ---
+    parser.add_argument(
+        "--evaluator", type=str, default=None,
+        help="Explicit path to the OpenEvolve evaluator module, overriding "
+             "the --noncss/--milp auto-selected default (e.g. a campaign-"
+             "specific evaluator such as openevolve_evaluator_weight5_css.py). "
+             "Default: openevolve_evaluator.py, or openevolve_evaluator_noncss.py "
+             "when --noncss is set.",
+    )
     args = parser.parse_args()
 
     # Resolve model list (None means "use config as-is")
@@ -410,11 +419,19 @@ def main():
 
     # Per-model attribution: tag each evolved program with the model that
     # produced it (worker side, via the evaluator import) and log every accepted
-    # program to <output_dir>/model_attribution.jsonl (main side, here).
+    # program to the FIXED results/evolution/<run_id>/model_attribution.jsonl
+    # convention (main side, here) -- never <output_dir>. provenance_reducer.py
+    # only ever looks for this file at that fixed convention (unlike
+    # run_manifest.json, which is deliberately also allowed to live in a
+    # custom --output dir; see run_manifest.py's manifest_path docstring), so
+    # a --output pointing outside that tree must not divert this file away
+    # from where the reducer will look, or every event stays unjoined.
     try:
         from evolve.model_attribution import install as _install_attribution
         os.makedirs(output_dir, exist_ok=True)
-        _install_attribution(str(Path(output_dir) / "model_attribution.jsonl"))
+        _attribution_dir = Path(EVOLUTION_BASE) / run_name
+        os.makedirs(_attribution_dir, exist_ok=True)
+        _install_attribution(str(_attribution_dir / "model_attribution.jsonl"))
     except Exception as exc:
         print(f"Warning: model attribution not installed: {exc}")
 
@@ -430,6 +447,23 @@ def main():
     if not Path(seed_path).exists():
         print(f"Error: seed solution not found: {seed_path}")
         sys.exit(1)
+
+    # Export config/seed content hashes as env vars, mirroring the
+    # QCODE_RUN_NAME convention above: evaluator subprocess workers call
+    # discovery_events.append_discovery_event() without a config_hash/
+    # seed_hash kwarg, which falls back to reading exactly these two env var
+    # names (see that function's docstring) -- without this export, every
+    # discovery event recorded null config_hash/seed_hash even though
+    # write_run_manifest() below computes the real hashes. Reuses the same
+    # file_content_hash() write_run_manifest() uses internally, so the
+    # values agree with run_manifest.json.
+    from evolve.discovery_events import file_content_hash
+    _config_hash = file_content_hash(args.config)
+    _seed_hash = file_content_hash(seed_path)
+    if _config_hash:
+        os.environ["QCODE_RUN_CONFIG_HASH"] = _config_hash
+    if _seed_hash:
+        os.environ["QCODE_RUN_SEED_HASH"] = _seed_hash
 
     # When --noncss is set, use the non-CSS evaluator directly (no patching needed).
     if args.noncss:
@@ -470,6 +504,14 @@ def main():
     else:
         EVALUATOR_ACTIVE = EVALUATOR
 
+    # Explicit --evaluator takes precedence over the --noncss/--milp
+    # auto-selected default, for both fresh and resumed runs.
+    if args.evaluator:
+        if not Path(args.evaluator).exists():
+            print(f"Error: evaluator not found: {args.evaluator}")
+            sys.exit(1)
+        EVALUATOR_ACTIVE = args.evaluator
+
     # Validate resume path
     if args.resume and not Path(args.resume).exists():
         print(f"Error: checkpoint path does not exist: {args.resume}")
@@ -503,6 +545,30 @@ def main():
     try:
         config = _build_config(args, api_base, model_names)
 
+        # Run-launch manifest (Phase E3): captures git commit, config/seed/
+        # evaluator hashes, model ensemble, effective gates, and RNG seed for
+        # after-the-fact provenance. Written to <output_dir>/run_manifest.json
+        # (not the fixed results/evolution/<run_id>/ convention used by
+        # discovery_events.py/provenance_reducer.py) so a caller that passes
+        # --output pointing outside that convention -- including test tmp_paths
+        # -- never has this call write into the real repo tree.
+        try:
+            from evolve.run_manifest import write_run_manifest
+            write_run_manifest(
+                run_name,
+                campaign_name=Path(EVALUATOR_ACTIVE).stem,
+                config_path=args.config,
+                seed_path=seed_path,
+                evaluator_path=EVALUATOR_ACTIVE,
+                model_aliases=[
+                    {"alias": m.name, "weight": m.weight} for m in config.llm.models
+                ],
+                rng_seed=getattr(config, "random_seed", None),
+                manifest_path=str(Path(output_dir) / "run_manifest.json"),
+            )
+        except Exception as exc:
+            print(f"Warning: run manifest not written: {exc}")
+
         # Startup banner
         active_models = [m.name for m in config.llm.models]
         print(f"\nStarting evolution:")
@@ -515,6 +581,7 @@ def main():
         print(f"  Iterations: {args.iterations}")
         print(f"  API base: {api_base}")
         print(f"  Seed: {seed_path}")
+        print(f"  Evaluator: {EVALUATOR_ACTIVE}")
         if args.noncss:
             print(f"  Mode: Non-CSS PBB codes")
             print(f"  Distance: BP-OSD multi-channel (non-CSS)")
