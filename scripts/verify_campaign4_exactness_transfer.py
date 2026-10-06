@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""Verify Campaign 4 exact-distance transfer by explicit qubit permutations.
-
-The five corrected records inherit d=12 from one exact representative.
-Records are identified by (ell, m, A_terms, B_terms), not by JSONL position.
-The frozen pre-correction source blob is recorded only as provenance; the
-current JSONL necessarily has a different blob after this correction.
-"""
+"""Verify Campaign 4 exact-distance transfers from one exact BB representative."""
 
 from __future__ import annotations
 
@@ -24,446 +18,111 @@ from evaluation.tanner_equivalence import _extract_check_matrices, canonical_dig
 
 SOURCE = ROOT / "results" / "campaign4_reverified.jsonl"
 FROZEN_SOURCE_BLOB_SHA1 = "3fcddce65c1711041cc82eddebee0242a201b61e"
+REFERENCE = {
+    "ell": 12, "m": 12,
+    "A_terms": [[0, 0], [2, 3], [1, 0]],
+    "B_terms": [[0, 0], [1, 2], [2, 1]],
+}
 
-REFERENCE = {"ell":12,"m":12,"A_terms":[[0,0],[2,3],[1,0]],"B_terms":[[0,0],[1,2],[2,1]]}
-
+# Each entry is:
+# (A_terms, B_terms, L_matrix, L_translation, R_matrix, R_translation)
 TARGETS = [
-    {
-        "id": {
-            "ell": 12,
-            "m": 12,
-            "A_terms": [
-                [
-                    0,
-                    0
-                ],
-                [
-                    1,
-                    2
-                ],
-                [
-                    2,
-                    1
-                ]
-            ],
-            "B_terms": [
-                [
-                    0,
-                    0
-                ],
-                [
-                    10,
-                    1
-                ],
-                [
-                    11,
-                    2
-                ]
-            ]
-        },
-        "map": {
-            "L": {
-                "target_sector": "L",
-                "matrix": [
-                    [
-                        1,
-                        11
-                    ],
-                    [
-                        11,
-                        0
-                    ]
-                ],
-                "translation": [
-                    0,
-                    0
-                ]
-            },
-            "R": {
-                "target_sector": "R",
-                "matrix": [
-                    [
-                        1,
-                        11
-                    ],
-                    [
-                        11,
-                        0
-                    ]
-                ],
-                "translation": [
-                    10,
-                    0
-                ]
-            }
-        }
-    },
-    {
-        "id": {
-            "ell": 12,
-            "m": 12,
-            "A_terms": [
-                [
-                    0,
-                    0
-                ],
-                [
-                    3,
-                    1
-                ],
-                [
-                    3,
-                    2
-                ]
-            ],
-            "B_terms": [
-                [
-                    0,
-                    0
-                ],
-                [
-                    1,
-                    2
-                ],
-                [
-                    2,
-                    1
-                ]
-            ]
-        },
-        "map": {
-            "L": {
-                "target_sector": "L",
-                "matrix": [
-                    [
-                        0,
-                        11
-                    ],
-                    [
-                        1,
-                        11
-                    ]
-                ],
-                "translation": [
-                    0,
-                    0
-                ]
-            },
-            "R": {
-                "target_sector": "R",
-                "matrix": [
-                    [
-                        0,
-                        11
-                    ],
-                    [
-                        1,
-                        11
-                    ]
-                ],
-                "translation": [
-                    11,
-                    0
-                ]
-            }
-        }
-    },
-    {
-        "id": {
-            "ell": 12,
-            "m": 12,
-            "A_terms": [
-                [
-                    0,
-                    0
-                ],
-                [
-                    3,
-                    2
-                ],
-                [
-                    0,
-                    1
-                ]
-            ],
-            "B_terms": [
-                [
-                    0,
-                    0
-                ],
-                [
-                    1,
-                    2
-                ],
-                [
-                    2,
-                    1
-                ]
-            ]
-        },
-        "map": {
-            "L": {
-                "target_sector": "L",
-                "matrix": [
-                    [
-                        0,
-                        1
-                    ],
-                    [
-                        1,
-                        0
-                    ]
-                ],
-                "translation": [
-                    0,
-                    0
-                ]
-            },
-            "R": {
-                "target_sector": "R",
-                "matrix": [
-                    [
-                        0,
-                        1
-                    ],
-                    [
-                        1,
-                        0
-                    ]
-                ],
-                "translation": [
-                    0,
-                    0
-                ]
-            }
-        }
-    },
-    {
-        "id": {
-            "ell": 12,
-            "m": 12,
-            "A_terms": [
-                [
-                    0,
-                    0
-                ],
-                [
-                    1,
-                    3
-                ],
-                [
-                    2,
-                    3
-                ]
-            ],
-            "B_terms": [
-                [
-                    0,
-                    0
-                ],
-                [
-                    1,
-                    2
-                ],
-                [
-                    2,
-                    1
-                ]
-            ]
-        },
-        "map": {
-            "L": {
-                "target_sector": "L",
-                "matrix": [
-                    [
-                        1,
-                        11
-                    ],
-                    [
-                        0,
-                        11
-                    ]
-                ],
-                "translation": [
-                    0,
-                    0
-                ]
-            },
-            "R": {
-                "target_sector": "R",
-                "matrix": [
-                    [
-                        1,
-                        11
-                    ],
-                    [
-                        0,
-                        11
-                    ]
-                ],
-                "translation": [
-                    0,
-                    11
-                ]
-            }
-        }
-    },
-    {
-        "id": {
-            "ell": 12,
-            "m": 12,
-            "A_terms": [
-                [
-                    0,
-                    0
-                ],
-                [
-                    1,
-                    3
-                ],
-                [
-                    2,
-                    3
-                ]
-            ],
-            "B_terms": [
-                [
-                    0,
-                    0
-                ],
-                [
-                    3,
-                    1
-                ],
-                [
-                    9,
-                    2
-                ]
-            ]
-        },
-        "map": {
-            "L": {
-                "target_sector": "L",
-                "matrix": [
-                    [
-                        11,
-                        8
-                    ],
-                    [
-                        0,
-                        11
-                    ]
-                ],
-                "translation": [
-                    0,
-                    0
-                ]
-            },
-            "R": {
-                "target_sector": "R",
-                "matrix": [
-                    [
-                        11,
-                        8
-                    ],
-                    [
-                        0,
-                        11
-                    ]
-                ],
-                "translation": [
-                    7,
-                    11
-                ]
-            }
-        }
-    }
+    (
+        [[0, 0], [1, 2], [2, 1]], [[0, 0], [10, 1], [11, 2]],
+        [[1, 11], [11, 0]], [0, 0], [[1, 11], [11, 0]], [10, 0],
+    ),
+    (
+        [[0, 0], [3, 1], [3, 2]], [[0, 0], [1, 2], [2, 1]],
+        [[0, 11], [1, 11]], [0, 0], [[0, 11], [1, 11]], [11, 0],
+    ),
+    (
+        [[0, 0], [3, 2], [0, 1]], [[0, 0], [1, 2], [2, 1]],
+        [[0, 1], [1, 0]], [0, 0], [[0, 1], [1, 0]], [0, 0],
+    ),
+    (
+        [[0, 0], [1, 3], [2, 3]], [[0, 0], [1, 2], [2, 1]],
+        [[1, 11], [0, 11]], [0, 0], [[1, 11], [0, 11]], [0, 11],
+    ),
+    (
+        [[0, 0], [1, 3], [2, 3]], [[0, 0], [3, 1], [9, 2]],
+        [[11, 8], [0, 11]], [0, 0], [[11, 8], [0, 11]], [7, 11],
+    ),
 ]
 
-def identity(row):
+def ident(ell, m, a_terms, b_terms):
     return {
-        "ell": int(row["ell"]),
-        "m": int(row["m"]),
-        "A_terms": row["A_terms"],
-        "B_terms": row["B_terms"],
+        "ell": ell, "m": m,
+        "A_terms": a_terms, "B_terms": b_terms,
     }
 
-def identity_key(value):
+def key(value):
     return (
-        int(value["ell"]),
-        int(value["m"]),
-        tuple(tuple(term) for term in value["A_terms"]),
-        tuple(tuple(term) for term in value["B_terms"]),
+        int(value["ell"]), int(value["m"]),
+        tuple(map(tuple, value["A_terms"])),
+        tuple(map(tuple, value["B_terms"])),
     )
 
 def gf2_rank(matrix):
     a = np.asarray(matrix, dtype=np.uint8).copy() & 1
-    rows, cols = a.shape
     rank = 0
-    for col in range(cols):
+    for col in range(a.shape[1]):
         pivots = np.flatnonzero(a[rank:, col])
-        if len(pivots) == 0:
+        if not len(pivots):
             continue
         pivot = rank + int(pivots[0])
-        if pivot != rank:
-            a[[rank, pivot]] = a[[pivot, rank]]
-        for row in range(rows):
+        a[[rank, pivot]] = a[[pivot, rank]]
+        for row in range(a.shape[0]):
             if row != rank and a[row, col]:
                 a[row] ^= a[rank]
         rank += 1
-        if rank == rows:
+        if rank == a.shape[0]:
             break
     return rank
 
 def same_rowspace(left, right):
     left = np.asarray(left, dtype=np.uint8) & 1
     right = np.asarray(right, dtype=np.uint8) & 1
-    rl = gf2_rank(left)
-    rr = gf2_rank(right)
+    rl, rr = gf2_rank(left), gf2_rank(right)
     return rl == rr == gf2_rank(np.vstack((left, right)))
+
+def affine_map(matrix, translation):
+    return {
+        "target_sector": None,
+        "matrix": matrix,
+        "translation": translation,
+    }
+
+def map_spec(l_matrix, l_translation, r_matrix, r_translation):
+    left = affine_map(l_matrix, l_translation)
+    right = affine_map(r_matrix, r_translation)
+    left["target_sector"] = "L"
+    right["target_sector"] = "R"
+    return {"L": left, "R": right}
 
 def qubit_permutation(spec, ell, m):
     cells = ell * m
     perm = np.empty(2 * cells, dtype=int)
-    sector_base = {"L": 0, "R": cells}
-    for source_sector, source_base in sector_base.items():
-        rule = spec[source_sector]
-        target_base = sector_base[rule["target_sector"]]
-        matrix = rule["matrix"]
-        translation = rule["translation"]
+    for sector, source_base in (("L", 0), ("R", cells)):
+        rule = spec[sector]
+        target_base = 0 if rule["target_sector"] == "L" else cells
+        matrix, shift = rule["matrix"], rule["translation"]
         for a in range(ell):
             for b in range(m):
-                aa = (
-                    matrix[0][0] * a
-                    + matrix[0][1] * b
-                    + translation[0]
-                ) % ell
-                bb = (
-                    matrix[1][0] * a
-                    + matrix[1][1] * b
-                    + translation[1]
-                ) % m
-                src = source_base + a * m + b
-                perm[src] = target_base + aa * m + bb
-    if sorted(perm.tolist()) != list(range(2 * cells)):
-        raise AssertionError("explicit qubit map is not bijective")
+                aa = (matrix[0][0] * a + matrix[0][1] * b + shift[0]) % ell
+                bb = (matrix[1][0] * a + matrix[1][1] * b + shift[1]) % m
+                perm[source_base + a * m + b] = target_base + aa * m + bb
+    assert sorted(perm.tolist()) == list(range(2 * cells))
     return perm
 
 def main():
-    rows = [
-        json.loads(line)
-        for line in SOURCE.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
+    rows = [json.loads(line) for line in SOURCE.read_text().splitlines() if line]
     assert len(rows) == 39
 
-    by_id = {identity_key(identity(row)): row for row in rows}
-    assert len(by_id) == len(rows), "duplicate polynomial identities in source"
+    by_id = {key(row): row for row in rows}
+    assert len(by_id) == 39
 
-    reference = by_id[identity_key(REFERENCE)]
-    assert reference["n"] == 288
-    assert reference["k"] == 12
-    assert reference["d"] == 12
+    reference = by_id[key(REFERENCE)]
+    assert (reference["n"], reference["k"], reference["d"]) == (288, 12, 12)
     assert reference["d_is_exact"] is True
 
     ref_code = build_bb_code(
@@ -473,56 +132,49 @@ def main():
     hx_ref, hz_ref = _extract_check_matrices(ref_code)
     ref_digest = canonical_digest(ref_code)
 
-    target_keys = {identity_key(item["id"]) for item in TARGETS}
-    expected_class_keys = target_keys | {identity_key(REFERENCE)}
+    target_records = []
+    target_keys = set()
+    for a_terms, b_terms, lm, lt, rm, rt in TARGETS:
+        target_id = ident(12, 12, a_terms, b_terms)
+        spec = map_spec(lm, lt, rm, rt)
+        target_records.append((target_id, spec))
+        target_keys.add(key(target_id))
 
-    all_codes = {}
     classes = defaultdict(set)
+    codes = {}
     for row in rows:
-        key = identity_key(identity(row))
+        row_key = key(row)
         code = build_bb_code(row["ell"], row["m"], row["A_terms"], row["B_terms"])
-        all_codes[key] = code
-        classes[canonical_digest(code)].add(key)
+        codes[row_key] = code
+        classes[canonical_digest(code)].add(row_key)
 
-    # Vincent Russo's all-39 question: the reference class is exactly six.
-    assert classes[ref_digest] == expected_class_keys
+    # Full 39-row audit: this exact-distance class contains exactly six records.
+    assert classes[ref_digest] == target_keys | {key(REFERENCE)}
 
-    checked = []
-    for item in TARGETS:
-        key = identity_key(item["id"])
-        row = by_id[key]
-
-        assert row["n"] == 288 and row["k"] == 12 and row["d"] == 12
+    for target_id, spec in target_records:
+        row = by_id[key(target_id)]
+        assert (row["n"], row["k"], row["d"]) == (288, 12, 12)
         assert row["d_is_exact"] is True
+        assert row["stage"] == "milp_incumbent"
+        assert row["milp_details"]["exact"] is False
 
-        transfer = row.get("distance_transfer")
-        assert transfer == {
+        assert row["distance_transfer"] == {
             "valid": True,
             "method": "colored_bliss_permutation_equivalence",
             "reference_d_exact": 12,
             "source_path": "results/campaign4_reverified.jsonl",
             "source_git_blob_sha1": FROZEN_SOURCE_BLOB_SHA1,
             "reference": REFERENCE,
-            "qubit_map_from_reference": item["map"],
+            "qubit_map_from_reference": spec,
         }
 
-        code = all_codes[key]
+        code = codes[key(target_id)]
         assert canonical_digest(code) == ref_digest
         hx_target, hz_target = _extract_check_matrices(code)
-
-        perm = qubit_permutation(item["map"], row["ell"], row["m"])
+        perm = qubit_permutation(spec, 12, 12)
         assert same_rowspace(hx_ref, hx_target[:, perm])
         assert same_rowspace(hz_ref, hz_target[:, perm])
 
-        # Keep historical MILP metadata historical: exactness was transferred,
-        # not newly proved by those previously incomplete MILP runs.
-        assert row["stage"] == "milp_incumbent"
-        assert row["milp_details"]["exact"] is False
-
-        checked.append(identity(row))
-
-    # Other duplicate classes found by the all-39 BLISS audit contain no exact
-    # representative, so this correction intentionally does not promote them.
     other_multi = [
         members for digest, members in classes.items()
         if digest != ref_digest and len(members) > 1
@@ -534,7 +186,7 @@ def main():
         "rows_checked": len(rows),
         "equivalence_classes": len(classes),
         "reference_class_size": len(classes[ref_digest]),
-        "transfers_verified": len(checked),
+        "transfers_verified": len(target_records),
         "other_multi_member_classes_without_transfer": len(other_multi),
         "frozen_source_blob_sha1": FROZEN_SOURCE_BLOB_SHA1,
     }, indent=2))
