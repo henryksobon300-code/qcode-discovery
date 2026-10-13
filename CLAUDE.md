@@ -22,6 +22,11 @@ uv run python main.py --quick                    # k-only across all 18 lattices
 uv run python main.py --lattices 12,6 6,6        # specific lattices with distance
 uv run python main.py --lattices 12,6 -v         # verbose logging
 
+# Independent upper-bound witness triage (never certifies exact distance)
+uv run python scripts/refute_partial_catalogue.py --check  # verify saved sidecar
+uv run python scripts/refute_partial_catalogue.py --trials 600 --seed 0 --output /tmp/campaign7_partial_ris_replay.jsonl
+# Choose a new --output for each fresh search; existing sidecars are preserved.
+
 # Run evolutionary search (requires running LiteLLM proxy)
 uv run python evolve/run_evolution.py --model anthropic/claude-sonnet-4-5-20250514 --iterations 100
 
@@ -44,6 +49,8 @@ The system discovers bivariate bicycle (BB) and perturbed bivariate bicycle (PBB
 - **distance.py** — BP-OSD distance estimation (CSS codes, OSD_0 and OSD-CS)
 - **distance_milp.py** — MILP exact distance: CSS (Hamming weight) and symplectic (non-CSS, binary-OR linearization of per-qubit support) formulations via HiGHS/scipy
 - **distance_bposd_noncss.py** — BP-OSD for non-CSS codes with achievable-syndrome sampling (critical: random syndromes fail on non-CSS codes)
+- **distance_ris.py** — Independent, bounded information-set search on binary CSS/non-CSS normalizers. Returns a Pauli-weight upper bound plus a concrete logical witness, or UNKNOWN; optional local symplectic frames, deterministic trial budgets, no decoder/solver dependency
+- **distance_witness.py** — Separate dense GF(2) witness checker: zero symplectic syndrome, outside the stabilizer row space, paired X/Z support weight and matrix fingerprint
 - **clifford_equivalence.py** — Check if a non-CSS code is genuinely non-CSS or Clifford-equivalent to CSS
 - **mirror_code.py** — Mirror code construction (Khesin & Lu, arXiv:2603.05496)
 - **tanner_equivalence.py** — Permutation-equivalence decision via BLISS canonical labeling of the colored Tanner graph (sound + complete for permutation equivalence; not LC / Clifford / general code equivalence). CSS variant (`canonical_hash`) uses 3 colors {qubits, X-checks, Z-checks}; non-CSS variant (`canonical_hash_noncss`) uses 3 colors {qubits, per-stabilizer X-support, per-stabilizer Z-support} with a tying edge between each stabilizer's X-support and Z-support vertices (without the tying edge, BLISS would permit independent permutations of X- and Z-support classes — strictly broader than stabilizer permutation equivalence).
@@ -89,4 +96,5 @@ Key structural insight: codes with A=B always have d=2 (proven, Theorem 1 in pap
 - **`verify_lc_bruteforce` coverage (`evaluation/clifford_equivalence.py:406`):** Tests all 36 uniform per-block Clifford assignments (6×6 over {I, S, H, HS, SH, HSH}). Non-uniform {I,S} and {H,HS} patterns are handled exactly via `verify_uniform_reduction_exact` (GF(2) affine system); non-uniform {SH,HSH} patterns are not exhaustively checked and are the only gap.
 - **BP-OSD variance:** A single BP-OSD run is unreliable — estimates can range from 6 to 18 across independent batches on the same code. Publication claims use 150k+ trials (3 decoders × 10 batches × 5,000 trials). BP-OSD overestimates distance by up to 12x for high-rate codes.
 - **MILP incumbents:** Some large codes have `milp_incumbent` status (feasible solution found, but not proven optimal). This gives a valid upper bound on d, not exact d. Check `milp_details["exact"]` for authoritative optimality status.
+- **RIS witnesses:** `estimate_distance_ris(code, num_trials=..., seed=...)` returns a `RISResult`, not an exact distance integer. `result.upper_bound` may be `None`; even a found witness never raises a lower bound. `scripts/refute_partial_catalogue.py` writes a separately verifiable sidecar and quarantines conflicts with existing schema-v2 lower bounds. The 600-trial seed-0 replay lowers all seven genuinely non-CSS PARTIAL Campaign 7 values; see `investigations/ris_partial_refutation.md`. Trial counts reproduce the search; optional wall-clock budgets only stop between trials.
 - **Non-CSS BLISS hash requires the tying edge.** When constructing the colored Tanner graph for a non-CSS code, the X-support vertex and Z-support vertex of each stabilizer must be joined by an edge so BLISS preserves the (X-part, Z-part) pairing. Without this edge BLISS permits independent row permutations of the X- and Z-parts (sigma_X != sigma_Z), and the resulting equivalence relation is strictly broader than stabilizer permutation equivalence. The production scripts (`scripts/verify_publication.py`, `scripts/verify_from_scratch.py`) and `evaluation/tanner_equivalence.py` (`canonical_hash_noncss`) all include the tying edge; see the "Non-CSS extension" comment block in `evaluation/tanner_equivalence.py` for the full argument.
