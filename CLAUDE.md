@@ -13,9 +13,15 @@ uv sync --group dev --group evolve               # + openevolve, litellm
 uv sync --group dev --group evolve --group tracking  # + wandb (all groups)
 
 # Run tests
-uv run python -m pytest tests/ -v          # all 161 tests (~2s)
+uv run python -m pytest tests/ -v          # full suite; catalogue audits take minutes
 uv run python -m pytest tests/ -v -m "not slow"  # skip distance estimation tests
 uv run python -m pytest tests/test_known_codes.py::TestEvaluator::test_gross_code_quick -v  # single test
+
+# Full optional coverage: retain all installed groups when invoking uv.
+uv sync --frozen --group dev --group evolve --group webster
+uv run --no-sync python -m pytest tests/ -vv --durations=30
+# Pinned external fixtures and the complete 634-case audit are documented in
+# investigations/ris_partial_refutation.md.
 
 # Run evaluation pipeline
 uv run python main.py --quick                    # k-only across all 18 lattices

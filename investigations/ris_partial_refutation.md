@@ -2,7 +2,7 @@
 
 Issues #13 and #17 describe a missing independent distance-refutation channel:
 BP-OSD and shallow MILP can agree on an overestimate. A normalizer search finds
-smaller logical operators for **all seven** genuinely non-CSS PARTIAL entries
+smaller logical operators for **all seven** entries selected by `trust_level=PARTIAL` and `lc_any=false`
 in `results/campaign7_publication_merged.jsonl`. These are upper bounds, not
 optimal-distance certificates. The original catalogue is unchanged.
 
@@ -80,29 +80,79 @@ generic non-CSS API, independent acceptance, and a reproducible triage path.
 
 ## Validation
 
-The targeted suite passed **149 tests** (including **55 new tests**):
+The complete final suite on revision `b627c090803a22ab3f49e06fb85360583c02a276`
+finished with **633 passed, 0 failed, 1 skipped** in **1690.40 seconds**.
+No slow or Webster markers were excluded. The 55 new tests all passed.
+The full case inventory, per-run outcomes/timings, environment, fixtures and
+original failures are recorded in `results/ris_full_test_audit_20261013.json`.
 
-```bash
-uv run python -m pytest tests/test_distance_ris.py tests/test_ris_catalogue.py \
-  tests/test_distance_schema.py tests/test_distance_milp_bounds.py \
-  tests/test_pbb_code.py tests/test_noncss_gate.py -q
-```
+Three complete runs were retained:
+
+| Run | Revision | Passed | Failed | Skipped |
+|---|---|---:|---:|---:|
+| Unchanged upstream base | `db051c576f51c43d2bf9923b6a87033e7f88f0fe` | 577 | 1 | 1 |
+| Initial RIS change | `0075b030dcb00524c8b0cdcecb45f49df23a19bf` | 631 | 2 | 1 |
+| Final repaired change | `b627c090803a22ab3f49e06fb85360583c02a276` | 633 | 0 | 1 |
+
+The shared failure was an existing stale referee artifact. Rebuilding it
+changed exactly three source SHA-256 references; all numerical/scientific
+contents remained identical. The additional initial failure came from an
+untracked temporary file already present before RIS work, which the recursive
+control-manifest scan included. Its 18,350,080 bytes were preserved outside
+the experiment inputs; they are an exact prefix of tracked `draws.jsonl`.
+No tracked experimental records or test assertions were modified. Six focused
+checks passed after these repairs, then the entire final suite ran again.
+
+The sole skip is the upstream OSD-CS test marked as unsafe because of a native
+crash. Its **original test body was additionally executed in isolated
+processes on both the base and initial RIS revisions**: both terminated with
+**SIGSEGV (signal 11)** in the existing `ldpc` decoding path. This is a known,
+reproduced native-library defect, not a passing test or a fixed decoder.
+RIS does not invoke that decoder. The final suite also reported 16 warnings.
 
 Coverage includes exhaustive tiny-code oracles, both optional frame modes,
 dependent checks, Y weights, reproducible seeds, corrupted/trivial operators,
-budget exhaustion, lower-bound conflicts, legacy exact-claim conflict guards,
-the CLI, and both real previously reported collapses. All seven saved
-witnesses also pass the separate `--check` command.
+budget exhaustion, bound conflicts, legacy exact-claim conflict guards, the
+CLI, and both real previously reported collapses. All seven saved witnesses
+also pass the separate `--check` command.
 
-The full `tests/ -m 'not slow and not webster'` run was attempted but **not
-completed**. It was interrupted while the existing catalogue-wide Clifford
-equivalence audit ran; an unchanged base worktree also reached the same
-expensive test (`TestLCCatalog::test_all_368_not_lc_css`) and was interrupted.
-The changed-tree run emitted a native-library message (`fatal library error,
-lookup self`) before that interruption; its cause was not established. This
-is not a claim that the full repository suite passed or that this message was
-reproduced on the base revision. No unrelated tests or runtime code were
-changed to work around it.
+Full replay dependencies and command:
+
+```bash
+uv sync --frozen --group dev --group evolve --group webster
+uv run --no-sync python -X faulthandler -m pytest tests/ -vv --durations=30
+```
+
+The two fixture-dependent referee tests require a checkout at
+`/tmp/qldpc-challenge-src`, pinned to
+`3b50503b058a0c09500c1017b54c3d547e1101cc`, with
+`codes/96-4-12.json` and `codes/140-6-14.json`. Their SHA-256 values are in the
+case ledger. For a fresh fixture path:
+
+```bash
+git clone --depth 1 --filter=blob:none --no-checkout \
+  https://github.com/unitaryfoundation/qldpc-challenge.git /tmp/qldpc-challenge-src
+git -C /tmp/qldpc-challenge-src sparse-checkout set --no-cone \
+  /AGENTS.md /LICENSE /codes/96-4-12.json /codes/140-6-14.json
+git -C /tmp/qldpc-challenge-src fetch --depth 1 origin \
+  3b50503b058a0c09500c1017b54c3d547e1101cc
+git -C /tmp/qldpc-challenge-src checkout --detach \
+  3b50503b058a0c09500c1017b54c3d547e1101cc
+```
+
+The historical evaluator object must also be available in the qcode-discovery
+object database (a shallow checkout may need this fetch):
+
+```bash
+git fetch --depth 1 https://github.com/qiskit-community/qcode-discovery.git \
+  aa0f18b600e38c4f5459a1fbfaee0836d9cf99ab
+```
+
+The original targeted suite was 149 passed; that partial milestone is now
+superseded by the completed full runs. The initial two full runs were
+concurrent and the final run was alone, so elapsed times are not a speedup
+benchmark. The earlier interrupted runs and their unexplained native message
+are historical; they are not substituted for the completed results above.
 
 ## Limits and integration
 
